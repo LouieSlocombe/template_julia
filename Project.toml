@@ -1,0 +1,16 @@
+name = "TemplateJulia"
+uuid = "69e0f168-2f40-4df0-a8a6-1b25fc9e09e4"
+authors = ["Louie Slocombe <louies@hotmail.co.uk>"]
+version = "0.1.0"
+
+[compat]
+Aqua = "0.8"
+Test = "1.10"
+julia = "1.10"
+
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Aqua", "Test"]
