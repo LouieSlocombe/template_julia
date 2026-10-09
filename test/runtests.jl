@@ -1,4 +1,5 @@
 using Aqua
+using ExplicitImports
 using TemplateJulia
 using Test
 
@@ -13,12 +14,11 @@ function capture_main(args::Vector{String})
 end
 
 """
-Run the installed Julia executable without a shell or user startup file.
+Run the package entry point with `julia -m`, without a shell or user startup file.
 """
 function capture_cli(args::String...)
     project = pkgdir(TemplateJulia)
-    script = joinpath(project, "bin", "template-julia.jl")
-    command = `$(Base.julia_cmd()) --startup-file=no --project=$project $script $args`
+    command = `$(Base.julia_cmd()) --startup-file=no --project=$project -m TemplateJulia $args`
     output = IOBuffer()
     errors = IOBuffer()
     process = run(pipeline(ignorestatus(command); stdout = output, stderr = errors))
@@ -65,17 +65,18 @@ end
     end
 
     @testset "Command-line argument handling" begin
-        for (args, name) in (
-            (String[], "World"),
-            (["Julia"], "Julia"),
-            (["Ada Lovelace"], "Ada Lovelace"),
-            (["世界"], "世界"),
-            ([""], ""),
-            (["--"], "World"),
-            (["--", "Julia"], "Julia"),
-            (["--", "--help"], "--help"),
-            (["--", "-h"], "-h"),
-        )
+        greetings = [
+            String[] => "World",
+            ["Julia"] => "Julia",
+            ["Ada Lovelace"] => "Ada Lovelace",
+            ["世界"] => "世界",
+            [""] => "",
+            ["--"] => "World",
+            ["--", "Julia"] => "Julia",
+            ["--", "--help"] => "--help",
+            ["--", "-h"] => "-h",
+        ]
+        for (args, name) in greetings
             result = capture_main(args)
             @test result.status === 0
             @test result.output == "Hello, $(name)!\n"
@@ -90,14 +91,15 @@ end
             @test isempty(result.errors)
         end
 
-        for args in (
+        invalid_arguments = [
             ["--unknown"],
             ["-x"],
             ["Alice", "Bob"],
             ["--help", "Alice"],
             ["Alice", "--help"],
             ["--", "Alice", "Bob"],
-        )
+        ]
+        for args in invalid_arguments
             result = capture_main(args)
             @test result.status === 2
             @test isempty(result.output)
@@ -105,7 +107,12 @@ end
         end
     end
 
-    @testset "Executable script" begin
+    @testset "Entry point" begin
+        @test Base.ispublic(TemplateJulia, :main)
+        # Exporting an `@main` function would make it the entry point of any
+        # script that runs `using TemplateJulia`.
+        @test !Base.isexported(TemplateJulia, :main)
+
         greeting = capture_cli("Ada Lovelace")
         @test greeting.status == 0
         @test greeting.output == "Hello, Ada Lovelace!\n"
@@ -124,5 +131,6 @@ end
 
     @testset "Package quality" begin
         Aqua.test_all(TemplateJulia)
+        test_explicit_imports(TemplateJulia)
     end
 end

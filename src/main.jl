@@ -6,7 +6,7 @@ Print a friendly greeting to `io` and return `nothing`.
 # Examples
 
 ```julia
-print_hello(\"Ada\") # Hello, Ada!
+print_hello("Ada") # Hello, Ada!
 ```
 """
 function print_hello(name::AbstractString = "World"; io::IO = stdout)

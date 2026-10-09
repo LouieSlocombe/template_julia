@@ -2,40 +2,76 @@ name: CI
 
 on:
   push:
+    branches: [main]
+    tags: ["*"]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+permissions: {}
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  test:
-    name: Julia ${{ matrix.julia-version }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        julia-version: ["1.10", "1"]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Julia
-        uses: julia-actions/setup-julia@v3
+        uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
-          version: ${{ matrix.julia-version }}
+          version: "1"
+
+      - name: Check formatting with Runic
+        uses: fredrikekre/runic-action@b4dbd650db5cc684baae27fea45d22daf41693c2 # v1.5.0
+        with:
+          version: "1"
+
+  test:
+    name: Julia ${{ matrix.version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.version == 'pre' }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # `min` is the oldest Julia allowed by Project.toml; `1` is the latest release.
+        version: ["min", "1"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          # Early warning from the next Julia release; failures do not fail the run.
+          - version: "pre"
+            os: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: ${{ matrix.version }}
 
       - name: Cache Julia dependencies
-        uses: julia-actions/cache@v3
+        uses: julia-actions/cache@9353db09a0f2bbbdec6f41791918c75d37391b36 # v3.5.0
         with:
           delete-old-caches: "false"
 
@@ -45,8 +81,18 @@ jobs:
       - name: Test the package and check package quality
         run: julia --startup-file=no --project=. -e 'using Pkg; Pkg.test()'
 
-      - name: Smoke test the command line
-        run: julia --startup-file=no --project=. bin/template-julia.jl Ada
+      - name: Smoke test the package entry point
+        run: julia --startup-file=no --project=. -m TemplateJulia Ada
+
+      - name: Install the command-line app
+        run: |
+          julia --startup-file=no -e 'using Pkg; Pkg.Apps.develop(path=pwd())'
+          julia --startup-file=no -e 'println(joinpath(first(DEPOT_PATH), "bin"))' >> "$GITHUB_PATH"
+
+      # PowerShell finds the app's .bat launcher on Windows and its shell launcher elsewhere.
+      - name: Smoke test the installed app
+        shell: pwsh
+        run: template-julia Ada
 
       - name: Smoke test the package from a separate environment
         run: |
@@ -60,32 +106,31 @@ jobs:
             print_hello("Ada")
           '
 
-  quality:
-    name: Formatting and coverage
+  coverage:
+    name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Julia
-        uses: julia-actions/setup-julia@v3
+        uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1"
 
       - name: Cache Julia dependencies
-        uses: julia-actions/cache@v3
+        uses: julia-actions/cache@9353db09a0f2bbbdec6f41791918c75d37391b36 # v3.5.0
         with:
           delete-old-caches: "false"
 
       - name: Install development tools
         run: julia --startup-file=no --project=build_tools -e 'using Pkg; Pkg.instantiate()'
-
-      - name: Check formatting
-        run: julia --startup-file=no --project=build_tools build_tools/format.jl --check
-
-      - name: Clear previous coverage
-        run: julia --startup-file=no --project=build_tools -e 'using Coverage; clean_folder("src")'
 
       - name: Test with coverage
         run: julia --startup-file=no --project=. -e 'using Pkg; Pkg.test(coverage=true)'
@@ -95,7 +140,7 @@ jobs:
 
       - name: Save the coverage report
         if: always() && hashFiles('lcov.info') != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: lcov.info

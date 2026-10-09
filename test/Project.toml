@@ -1,0 +1,10 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+TemplateJulia = "69e0f168-2f40-4df0-a8a6-1b25fc9e09e4"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Aqua = "0.8"
+ExplicitImports = "1.15"
+Test = "1"

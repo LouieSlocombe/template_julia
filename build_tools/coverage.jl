@@ -1,4 +1,4 @@
-using Coverage
+using CoverageTools
 
 cd(dirname(@__DIR__)) do
     # Count uncalled function bodies too, including files without a .cov report.

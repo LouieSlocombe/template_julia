@@ -17,12 +17,16 @@ Options:
 Run the greeting command. Return `0` on success or help and `2` for invalid
 arguments. Output goes to `io`; usage errors go to `err`. This function does
 not exit the Julia process.
+
+This is the package's `@main` entry point: `julia -m TemplateJulia` and the
+installed `template-julia` app call it and use the returned status as the exit
+code.
 """
-function main(
-    args::AbstractVector{<:AbstractString} = ARGS;
-    io::IO = stdout,
-    err::IO = stderr,
-)
+function (@main)(
+        args::AbstractVector{<:AbstractString} = ARGS;
+        io::IO = stdout,
+        err::IO = stderr,
+    )
     if length(args) == 1 && first(args) in ("-h", "--help")
         print(io, CLI_HELP)
         return 0

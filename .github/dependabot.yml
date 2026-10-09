@@ -5,3 +5,22 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: julia
+    directories:
+      - "/"
+      - "/test"
+      - "/build_tools"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
